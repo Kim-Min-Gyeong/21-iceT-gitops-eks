@@ -1,44 +1,90 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
-  name: koco-spring
-  namespace: spring-backend
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ .Release.Name }}-active
+      previewService: {{ .Release.Name }}-preview
+      autoPromotionEnabled: true
+      autoPromotionSeconds: 30
+      scaleDownDelaySeconds: 30
   selector:
     matchLabels:
-      app: koco-spring
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: koco-spring
+        app: {{ .Release.Name }}
     spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- end }}
+      
+      {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
-        - name: ecr-registry
+        {{- range .Values.imagePullSecrets }}
+        - name: {{ .name }}
+        {{- end }}
+      {{- end }}
+      initContainers:
+        - name: download-otel-agent
+          image: amazon/aws-cli
+          command: ['sh', '-c']
+          args:
+            - |
+              aws s3 cp s3://{{ .Values.otelAgent.s3Bucket }}/otel-agent.jar /otel-agent/otel-agent.jar
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel-agent
       containers:
-        - name: spring
-          image: 266735804784.dkr.ecr.ap-northeast-2.amazonaws.com/dev-ai:latest
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export OTEL_RESOURCE_ATTRIBUTES="service.name=spring-prod,k8s.namespace.name=$POD_NAMESPACE,k8s.pod.name=$POD_NAME,k8s.cluster.name=ktb-ca-prod"
+              exec java {{ join " " .Values.javaOpts }} -jar /app/app.jar
           ports:
-            - containerPort: 8080
-          envFrom:
-            - secretRef:
-                name: koco-spring-secret
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: otel-metrics
+              containerPort: 9292
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-        - name: redis
-          image: redis:7.2
-          ports:
-            - containerPort: 6379
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "200m"
-              memory: "256Mi"
-                
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              {{- if .valueFrom }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel-agent
+            - name: logs
+              mountPath: /home/ec2-user/logs
+      volumes:
+        - name: otel-agent
+          emptyDir: {}
+        - name: logs
+          {{- if .Values.logging.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
