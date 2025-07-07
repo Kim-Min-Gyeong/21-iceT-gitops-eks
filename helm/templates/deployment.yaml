@@ -1,1 +1,44 @@
-
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koco-spring
+  namespace: spring-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: koco-spring
+  template:
+    metadata:
+      labels:
+        app: koco-spring
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry
+      containers:
+        - name: spring
+          image: 266735804784.dkr.ecr.ap-northeast-2.amazonaws.com/dev-ai:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: koco-spring-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        - name: redis
+          image: redis:7.2
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+                
