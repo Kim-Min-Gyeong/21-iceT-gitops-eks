@@ -1,23 +1,36 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
+apiVersion: argoproj.io/v1alpha1  # Argo CD Application API 그룹
+kind: Application                 # 리소스 종류
 metadata:
-  name: spring-prod
-  namespace: argocd
+  name: redis                     # Application 이름
+  namespace: argocd                # 네임스페이스
 spec:
-  project: default
+  project: default                 # 프로젝트 지정
   source:
-    repoURL: https://github.com/100-hours-a-week/20-real-gitops
-    targetRevision: main
-    path: apps/base/spring
+    repoURL: https://charts.bitnami.com/bitnami  # Helm 차트 리포지토리
+    chart: redis                 # 사용 차트 이름
+    targetRevision: "19.5.4"    # 차트 버전 고정
     helm:
-      valueFiles:
-      - ../../../env/prod/spring/values-prod.yaml
+      parameters:
+        - name: auth.enabled     # Redis 인증(비밀번호) 사용 여부
+          value: "false"        # 비밀번호 없이 운영
+        - name: architecture
+          value: "standalone"    # 단일 인스턴스 모드
+        - name: persistence.enabled
+          value: "true"         # 데이터 영속성 활성화
+        - name: persistence.size
+          value: "5Gi"         # PVC 크기 지정
+        - name: persistence.storageClass
+          value: "gp2"         # 사용할 StorageClass
+        - name: global.storageClass  # 전역 StorageClass 설정
+          value: "gp2"
+        - name: networkPolicy.enabled  # 네트워크 정책 사용 여부
+          value: "false"
+        - name: service.port
+          value: "6379"        # Redis 기본 포트
   destination:
-    server: https://kubernetes.default.svc
-    namespace: spring-prod
+    server: https://kubernetes.default.svc  # API 서버 주소
+    namespace: redis                  # redis 네임스페이스
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-    - CreateNamespace=true
