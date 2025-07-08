@@ -11,7 +11,7 @@ spec:
     targetRevision: latest
     helm:
       valueFiles:
-        - 21-iceT-gitops-eks/env/prod/values-prod.yaml  # 상대경로 또는 절대경로로 지정
+        - ../../../env/prod/values-prod.yaml  # 상대경로 또는 절대경로로 지정
       parameters:
         - name: controller.serviceAccount.create
           value: "true"
