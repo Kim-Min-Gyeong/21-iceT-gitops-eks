@@ -1,1 +1,8 @@
 ebsCsiIrsaRoleArn: arn:aws:iam::266735804784:role/AmazonEKS_EBS_CSI_Driver_IRSA
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
