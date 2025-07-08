@@ -6,13 +6,15 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Kim-Min-Gyeong/21-iceT-GitOps.git
-    targetRevision: HEAD
-    path: apps/springboot
+    repoURL: https://github.com/100-hours-a-week/20-real-gitops
+    targetRevision: main
+    path: apps/base/spring
   destination:
     server: https://kubernetes.default.svc
-    namespace: springboot
+    namespace: spring-prod
   syncPolicy:
     automated:
-      selfHeal: true
       prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
