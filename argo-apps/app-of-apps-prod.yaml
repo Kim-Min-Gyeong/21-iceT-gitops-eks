@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/100-hours-a-week/21-iceT-gitops
+    repoURL: https://github.com/Kim-Min-Gyeong/21-iceT-gitops-eks.git
     targetRevision: main
     path: argo-apps/apps-prod
     directory:
