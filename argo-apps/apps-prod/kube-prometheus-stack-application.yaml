@@ -1,21 +1,112 @@
-apiVersion: argoproj.io/v1alpha1  # Application API
-kind: Application                 # 리소스 종류
-metadata:
-  name: kube-prometheus-stack      # 앱 이름
-  namespace: argocd                # argocd 네임스페이스
-spec:
-  project: default                 # Argo CD 프로젝트
-  source:
-    repoURL: https://prometheus-community.github.io/helm-charts  # Helm repo
-    chart: kube-prometheus-stack  # 차트 이름
-    targetRevision: "latest"      # 최신 버전
-    directory:
-      recurse: true                # 하위 디렉터리까지 모두 검색
-    path: monitoring/kube-prometheus-values.yaml  # values.yaml 위치 지정
-  destination:
-    server: https://kubernetes.default.svc  # API 서버
-    namespace: monitoring            # 모니터링 네임스페이스
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+apiVersion: argoproj.io/v1alpha1   # Argo CD Application 리소스의 API 그룹 및 버전을 지정  
+kind: Application                  # 이 리소스가 Argo CD의 Application임을 나타냄  
+metadata:  
+  name: kube-prometheus-stack      # Argo CD 내에서 이 애플리케이션의 이름  
+  namespace: argocd                # Argo CD 컨트롤러가 설치된 네임스페이스  
+spec:  
+  project: default                 # Argo CD 프로젝트 이름 (권한·정책 단위)  
+  source:  
+    repoURL: https://prometheus-community.github.io/helm-charts  
+                                    # Helm 차트가 호스팅된 리포지토리 URL  
+    chart: kube-prometheus-stack   # 설치할 Helm 차트 이름  
+    targetRevision: "57.0.2"       # 차트 버전 (Helm의 version 필드와 대응)  
+    helm:  
+      values: |-                   # 아래 블록 전체를 Helm에 전달할 values로 인식  
+        ## Alertmanager 비활성화  
+        alertmanager:  
+          enabled: false          # Terraform 예제에서 false로 설정한 부분
+
+        ## 쿠버네티스 핵심 컴포넌트 스크랩 활성화  
+        kubeApiServer:  
+          enabled: true           # kube-apiserver 메트릭 수집  
+        kubelet:  
+          enabled: true           # kubelet 메트릭 수집  
+        kubeControllerManager:  
+          enabled: true           # controller-manager 메트릭 수집  
+        coreDns:  
+          enabled: true           # coreDNS 메트릭 수집  
+        kubeDns:  
+          enabled: false          # kube-dns (구버전) 메트릭 수집 비활성화  
+        kubeEtcd:  
+          enabled: false          # etcd 메트릭 수집 비활성화  
+        kubeScheduler:  
+          enabled: true           # scheduler 메트릭 수집  
+        kubeProxy:  
+          enabled: true           # kube-proxy 메트릭 수집  
+        nodeExporter:  
+          enabled: true           # 노드(호스트) 메트릭 수집
+
+        ## Grafana 설정  
+        grafana:  
+          enabled: true           # Grafana 설치 여부  
+          adminPassword: koco123  # 초기 admin 비밀번호 설정  
+          resources:              # 리소스 요청/제한 설정  
+            requests:  
+              cpu: "250m"         # 요청하는 최소 CPU  
+              memory: "256Mi"     # 요청하는 최소 메모리  
+            limits:  
+              cpu: "500m"         # 허용할 최대 CPU  
+              memory: "512Mi"     # 허용할 최대 메모리  
+          ingress:                # ALB 인그레스 설정  
+            enabled: true         # 인그레스 활성화  
+            ingressClassName: alb # 사용할 IngressClass 이름  
+            annotations:  
+              alb.ingress.kubernetes.io/scheme: internet-facing  
+                                    # ALB를 인터넷용으로 생성  
+              alb.ingress.kubernetes.io/target-type: ip  
+                                    # 대상(Target)을 IP로 지정  
+              alb.ingress.kubernetes.io/group.name: koco-alb-group  
+                                    # 여러 인그레스의 그룹화 이름  
+              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'  
+                                    # HTTPS 포트(443) 리스닝  
+              alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:266735804784:certificate/5f2a8c3b-a576-4295-84c1-beb75ca562d9  
+                                    # HTTPS용 ACM 인증서 ARN  
+              alb.ingress.kubernetes.io/backend-protocol: HTTP  
+                                    # 백엔드 프로토콜을 HTTP로 지정  
+            hosts:  
+              - grafana.koco-test.click  
+                                    # 호스트명(도메인) 리스트  
+            path: /                # 경로 매핑 (모든 경로)  
+            pathType: Prefix       # Prefix 매칭 방식 사용
+
+        ## Prometheus 설정  
+        prometheus:  
+          resources:             # Prometheus 서버의 리소스 요청/제한  
+            requests:  
+              cpu: "250m"  
+              memory: "256Mi"  
+            limits:  
+              cpu: "500m"  
+              memory: "512Mi"  
+          ingress:                # Prometheus UI에 대한 인그레스  
+            enabled: true  
+            ingressClassName: alb  
+            annotations:  
+              alb.ingress.kubernetes.io/scheme: internet-facing  
+              alb.ingress.kubernetes.io/target-type: ip  
+              alb.ingress.kubernetes.io/group.name: koco-alb-group  
+              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'  
+              alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:266735804784:certificate/5f2a8c3b-a576-4295-84c1-beb75ca562d9  
+              alb.ingress.kubernetes.io/backend-protocol: HTTP  
+            hosts:  
+              - prometheus.koco-test.click  
+            path: /  
+            pathType: Prefix  
+          prometheusSpec:        # Prometheus Operator CRD 내 세부 설정  
+            scrapeInterval: 30s   # 기본 스크랩 주기  
+            additionalScrapeConfigs:  
+              - job_name: 'springboot'  
+                metrics_path: /actuator/prometheus  
+                static_configs:  
+                  - targets:  
+                      - springboot.springboot.svc.cluster.local:8080  
+                                # 스프링부트 애플리케이션의 메트릭 엔드포인트
+
+  destination:  
+    server: https://kubernetes.default.svc  
+                                    # 클러스터 내부 API 서버 주소  
+    namespace: monitoring          # 실제 리소스를 배포할 네임스페이스  
+  syncPolicy:  
+    automated:  
+      prune: true                  # 매니페스트에서 제거된 리소스는 삭제  
+      selfHeal: true               # 실제 상태가 drift되면 자동 복원  
