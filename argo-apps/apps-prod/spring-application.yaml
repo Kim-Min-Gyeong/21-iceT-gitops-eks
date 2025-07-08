@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: spring-prod
+  name: spring-test
   namespace: argocd
 spec:
   project: default
@@ -12,10 +12,10 @@ spec:
     helm:
       valueFiles:
       - ../../../env/prod/values-prod.yaml
-      releaseName: spring-prod
+      releaseName: spring-test
   destination:
     server: https://kubernetes.default.svc
-    namespace: spring-prod
+    namespace: spring-test
   syncPolicy:
     automated:
       prune: true
