@@ -12,5 +12,3 @@ logging:
     enabled: true
     size: 5Gi
     storageClass: gp2
-
-namespace: spring-prod
