@@ -6,3 +6,9 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
+
+logging:
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: gp2
