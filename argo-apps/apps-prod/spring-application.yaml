@@ -9,6 +9,9 @@ spec:
     repoURL: https://github.com/Kim-Min-Gyeong/21-iceT-gitops-eks
     targetRevision: main
     path: apps/base/spring
+    helm:
+      valueFiles:
+      - ../../../env/prod/values-prod.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: spring-prod
