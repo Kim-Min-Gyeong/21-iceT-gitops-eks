@@ -12,6 +12,7 @@ spec:
     helm:
       valueFiles:
       - ../../../env/prod/values-prod.yaml
+      releaseName: spring-prod
   destination:
     server: https://kubernetes.default.svc
     namespace: spring-prod
