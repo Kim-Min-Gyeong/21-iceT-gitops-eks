@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: springboot-ingress
+  namespace: springboot
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: koco-alb-group
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:266735804784:certificate/5f2a8c3b-a576-4295-84c1-beb75ca562d9
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health
+spec:
+  ingressClassName: alb
+  rules:
+    - host: api.koco-test.click
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: springboot
+                port:
+                  number: 8080
+          - path: /oauth
+            pathType: Prefix
+            backend:
+              service:
+                name: springboot
+                port:
+                  number: 8080
